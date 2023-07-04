@@ -21,6 +21,8 @@ export function getSegments(encoder: Tiktoken, inputText: string) {
     const segmentText = textDecoder.decode(new Uint8Array(byteAcc));
     const graphemes = graphemer.splitGraphemes(segmentText);
 
+    // 关于这段的注释：
+    // 有的字符会被解释成多个 token，比如 emoji，这段需要将多个 token 拼接成一个字符
     if (graphemes.every((item, idx) => inputGraphemes[idx] === item)) {
       segments.push({ text: segmentText, tokens: tokenAcc });
 
@@ -29,6 +31,18 @@ export function getSegments(encoder: Tiktoken, inputText: string) {
       inputGraphemes = inputGraphemes.slice(graphemes.length);
     }
   }
-
   return segments;
+}
+
+// 远程版本
+const END_POINT = 'http://localhost:8231/encode'
+export type Segments = { text: string; tokens: { id: number; idx: number }[] }[]
+export async function getSegmentsFromRemote(encoderName: string, inputText: string): Promise<Segments> {
+  const ret = await fetch(END_POINT, {
+    method: 'POST',
+    body: JSON.stringify({ encoder: encoderName, text: inputText }),
+    headers: { 'Content-Type': 'application/json' }
+  })
+  const json = await ret.json()
+  return json as Segments
 }

@@ -1,6 +1,6 @@
 import { type NextPage } from "next";
 import Head from "next/head";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Github, Twitter } from "lucide-react";
 
 import { ChatGPTEditor } from "../sections/ChatGPTEditor";
@@ -13,7 +13,8 @@ import {
   type TiktokenModel,
   type TiktokenEncoding,
 } from "@dqbd/tiktoken";
-import { getSegments } from "~/utils/segments";
+import { Segments, getSegments, getSegmentsFromRemote } from "~/utils/segments";
+import { debounce } from 'lodash-es'
 
 function getUserSelectedEncoder(
   params: { model: TiktokenModel } | { encoder: TiktokenEncoding }
@@ -59,8 +60,21 @@ const Home: NextPage = () => {
   >({ model: "gpt-3.5-turbo" });
 
   const [encoder, setEncoder] = useState(() => getUserSelectedEncoder(params));
-  const data = getSegments(encoder, inputText);
+  const [loading, setLoading] = useState(false)
+  const [data, setData] = useState<Segments>([])
 
+  useEffect(() => {
+    setLoading(true)
+    const debouncedFetch = debounce(() => {
+      getSegmentsFromRemote(encoder.name || 'unknown', inputText)
+        .then(ret => { setData(ret); setLoading(false) }).catch(e => {
+          setLoading(false)
+        })
+    }, 500);
+    debouncedFetch()
+
+    return () => { debouncedFetch.cancel() }
+  }, [inputText, encoder.name])
   return (
     <>
       <Head>
@@ -99,6 +113,7 @@ const Home: NextPage = () => {
               onChange={(e) => setInputText(e.target.value)}
               className="min-h-[256px] rounded-md border p-4 font-mono shadow-sm"
             />
+            {loading && <div>Loading...</div>}
           </section>
 
           <section className="flex flex-col gap-4">

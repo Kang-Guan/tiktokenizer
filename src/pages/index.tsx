@@ -1,10 +1,10 @@
 import { type NextPage } from "next";
 import Head from "next/head";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Github, Twitter } from "lucide-react";
 
 import { ChatGPTEditor } from "../sections/ChatGPTEditor";
-import { EncoderSelect } from "~/sections/EncoderSelect";
+import { EncoderSelect, type ModelOnly } from "~/sections/EncoderSelect";
 import { TokenViewer } from "~/sections/TokenViewer";
 import { TextArea } from "~/components/Input";
 import {
@@ -13,11 +13,15 @@ import {
   type TiktokenModel,
   type TiktokenEncoding,
 } from "@dqbd/tiktoken";
-import { getSegments } from "~/utils/segments";
+import { type Segments, getSegments, getSegmentsFromRemote } from "~/utils/segments";
+import { debounce } from 'lodash-es'
 
 function getUserSelectedEncoder(
-  params: { model: TiktokenModel } | { encoder: TiktokenEncoding }
+  params: { model: TiktokenModel } | { encoder: TiktokenEncoding } | { remote: string }
 ) {
+  if ("remote" in params) {
+    return { free: () => { }, name: params.remote, isRemote: true }
+  }
   if ("model" in params) {
     if (
       params.model === "gpt-4" ||
@@ -42,7 +46,7 @@ function getUserSelectedEncoder(
 }
 
 function isChatModel(
-  params: { model: TiktokenModel } | { encoder: TiktokenEncoding }
+  params: ModelOnly
 ): params is { model: "gpt-3.5-turbo" | "gpt-4" | "gpt-4-32k" } {
   return (
     "model" in params &&
@@ -52,14 +56,32 @@ function isChatModel(
   );
 }
 
+
 const Home: NextPage = () => {
   const [inputText, setInputText] = useState<string>("");
-  const [params, setParams] = useState<
-    { model: TiktokenModel } | { encoder: TiktokenEncoding }
-  >({ model: "gpt-3.5-turbo" });
+  const [params, setParams] = useState<ModelOnly>({ model: "gpt-3.5-turbo" });
 
   const [encoder, setEncoder] = useState(() => getUserSelectedEncoder(params));
-  const data = getSegments(encoder, inputText);
+  const [loading, setLoading] = useState(false)
+  const [data, setData] = useState<Segments>([])
+
+  useEffect(() => {
+    if (!("isRemote" in encoder)) {
+      setData(getSegments(encoder, inputText))
+      return
+    }
+    setLoading(true)
+    const debouncedFetch = debounce(() => {
+      getSegmentsFromRemote(encoder.name || 'unknown', inputText)
+        .then(ret => { setData(ret); setLoading(false) }).catch(e => {
+          setLoading(false)
+        })
+    }, 500);
+    debouncedFetch()
+
+    return () => { debouncedFetch.cancel() }
+  }, [inputText, encoder])
+
 
   return (
     <>
@@ -79,7 +101,7 @@ const Home: NextPage = () => {
                 return getUserSelectedEncoder(update);
               });
 
-              if (isChatModel(update) !== isChatModel(params)) {
+              if (isChatModel(update) !== isChatModel(params as any)) {
                 setInputText("");
               }
 
@@ -99,6 +121,7 @@ const Home: NextPage = () => {
               onChange={(e) => setInputText(e.target.value)}
               className="min-h-[256px] rounded-md border p-4 font-mono shadow-sm"
             />
+            {loading && <div>Loading...</div>}
           </section>
 
           <section className="flex flex-col gap-4">
@@ -125,7 +148,8 @@ const Home: NextPage = () => {
             }
           `}
         </style>
-        <div className="flex justify-between text-center md:mt-6">
+        <div className='md:mt-6'>Forked from <span className="text-sky-500">dqbd/tiktokenizer</span></div>
+        <div className="flex justify-between text-center">
           <p className=" text-sm text-slate-400">
             Built by{" "}
             <a

@@ -1,6 +1,7 @@
 import type { TiktokenEncoding, TiktokenModel } from "@dqbd/tiktoken";
+import { spawn } from "child_process";
 import { ChevronsUpDown } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "~/components/Button";
 import {
   Command,
@@ -10,7 +11,20 @@ import {
   CommandItem,
   CommandSeparator,
 } from "~/components/Command";
+
 import { Popover, PopoverContent, PopoverTrigger } from "~/components/Popover";
+import { END_POINT_FOR_LIST } from "~/config";
+
+
+async function getRemoteModels() {
+  const res = await fetch(END_POINT_FOR_LIST)
+  if (res.status !== 200) {
+    const raw_text = await res.text()
+    throw Error(`${res.status}:${raw_text}`)
+  }
+  const ret = await res.json()
+  return ret
+}
 
 const MODELS = [
   "text-davinci-003",
@@ -68,23 +82,44 @@ function isModel(model: string | undefined): model is TiktokenModel {
   return !!model?.includes(model as TiktokenModel);
 }
 
-type ModelOnly = { model: TiktokenModel } | { encoder: TiktokenEncoding };
+export type ModelOnly = { model: TiktokenModel } | { encoder: TiktokenEncoding } | { remote: string };
 
 export function EncoderSelect(props: {
   value: ModelOnly;
   onChange: (value: ModelOnly) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const [remoteList, setRemoteList] = useState<string[]>([])
+  const [errMessage, setErrMessage] = useState('')
   const serializedValue =
     "encoder" in props.value
       ? `encoder:${props.value.encoder}`
       : "model" in props.value
-      ? `model:${props.value.model}`
-      : `model:gpt-3.5-turbo`;
+        ? `model:${props.value.model}`
+        : "remote" in props.value ?
+          `remote:${props.value.remote}`
+          : `model:gpt-3.5-turbo`;
+
+  const fetchList = () => getRemoteModels().then(r => {
+    setRemoteList(r)
+    setErrMessage('')
+  }).catch(e => {
+    console.warn(e)
+    setRemoteList([])
+    setErrMessage(String(e))
+  })
+
+  useEffect(() => {
+    fetchList()
+  }, [])
 
   const onSelect = (pair: string) => {
     setOpen(false);
     const [key, value] = pair.split(":");
+
+    if (key === "remote") {
+      return props.onChange({ remote: value! })
+    }
 
     if (key === "model" && isModel(value)) {
       return props.onChange({ model: value });
@@ -99,6 +134,12 @@ export function EncoderSelect(props: {
 
   return (
     <div>
+      {!!errMessage &&
+        <>
+          <span style={{ color: '#DD0000', fontSize: 12 }}>Fetch List: {errMessage}</span>
+          <Button style={{ marginLeft: 10, marginRight: 20, height: 30 }} onClick={fetchList}>Retry</Button>
+        </>
+      }
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <Button
@@ -114,13 +155,25 @@ export function EncoderSelect(props: {
           <Command>
             <CommandInput placeholder="Search model or encoder..." />
             <CommandEmpty>No model or encoder found.</CommandEmpty>
+            <CommandGroup heading="服务端计算">
+              {!!remoteList.length && remoteList.map((value) => (
+                <CommandItem
+
+                  key={value}
+                  value={`remote:${value}`}
+                  onSelect={onSelect}
+                >{value}
+                </CommandItem>
+              ))}{
+                !remoteList.length && <CommandItem><span style={{ color: '#BBB' }}>无</span></CommandItem>
+              }
+            </CommandGroup>
             <CommandGroup heading="Popular">
               {POPULAR.map((value) => (
                 <CommandItem
                   key={value}
-                  value={`${
-                    ENCODERS.includes(value) ? "encoder" : "model"
-                  }:${value}`}
+                  value={`${ENCODERS.includes(value) ? "encoder" : "model"
+                    }:${value}`}
                   onSelect={onSelect}
                 >
                   {CHAT_GPT_MODELS.includes(value)
@@ -160,6 +213,7 @@ export function EncoderSelect(props: {
           </Command>
         </PopoverContent>
       </Popover>
+
     </div>
   );
 }

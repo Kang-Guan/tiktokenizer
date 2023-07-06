@@ -13,8 +13,8 @@ import {
 } from "~/components/Command";
 
 import { Popover, PopoverContent, PopoverTrigger } from "~/components/Popover";
+import { END_POINT_FOR_LIST } from "~/config";
 
-const END_POINT_FOR_LIST = 'http://localhost:8231/list'
 
 async function getRemoteModels() {
   const res = await fetch(END_POINT_FOR_LIST)

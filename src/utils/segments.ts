@@ -1,5 +1,6 @@
 import { type Tiktoken } from "@dqbd/tiktoken";
 import Graphemer from "graphemer";
+import { END_POINT } from "~/config";
 
 const textDecoder = new TextDecoder();
 const graphemer = new Graphemer();
@@ -31,12 +32,10 @@ export function getSegments(encoder: Tiktoken, inputText: string) {
       inputGraphemes = inputGraphemes.slice(graphemes.length);
     }
   }
-  console.log(segments)
   return segments;
 }
 
 // 远程版本
-const END_POINT = 'http://localhost:8231/encode'
 export type Segments = { text: string; tokens: { id: number; idx: number }[] }[]
 export async function getSegmentsFromRemote(encoderName: string, inputText: string): Promise<Segments> {
   const ret = await fetch(END_POINT, {

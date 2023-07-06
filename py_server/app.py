@@ -1,11 +1,19 @@
 import uvicorn
 import importlib
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from typing import List
 import os
 import sys
+import argparse
+
+parser = argparse.ArgumentParser(description="Encode server")
+parser.add_argument("--host", type=str, default="0.0.0.0", help="Host IP address")
+parser.add_argument("--port", type=int, default=8231, help="Port number")
+args = parser.parse_args()
 
 ENCODER_PATH = './encoders'
 
@@ -63,6 +71,11 @@ async def get_encoders():
     # return ['remote model a', 'remote model b']
     return scan_encoders()
     
-if __name__ == "__main__":
+@app.get("/")
+async def get_homepage():
+    return FileResponse("../out/en.html", media_type="text/html")
 
-    uvicorn.run(app, host="0.0.0.0", port=8231)
+app.mount("/", StaticFiles(directory="../out"), name="static")
+
+if __name__ == "__main__":
+    uvicorn.run(app, host=args.host, port=args.port)

@@ -20,8 +20,8 @@
     推荐使用新的 venv
     ```
     cd py_server
-    pip install -r requirement.txt
-    python3 app.py --port=xxxx --ip=xxxx
+    pip install -r requirements.txt
+    python3 app.py --port=xxxx --host=xxxx
     ```
     默认 ip `0.0.0.0`, 端口 `8231`
     

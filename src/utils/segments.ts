@@ -31,6 +31,7 @@ export function getSegments(encoder: Tiktoken, inputText: string) {
       inputGraphemes = inputGraphemes.slice(graphemes.length);
     }
   }
+  console.log(segments)
   return segments;
 }
 

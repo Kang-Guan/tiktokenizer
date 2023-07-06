@@ -44,59 +44,66 @@ class LLaMATokenizer:
 
 tokenizer = LLaMATokenizer()
 
-# 某些 token 单独拿去 decode，会返回预期之外的值，在此特判
-# 注意，key 为字符串
-SPECIAL_TOKEN_DICT ={
-    # 空格
-    '29871' : ' ',
-    # 仅做演示，此处使用 + 连接两个 token
-    '12345+54321' : '<UNKNOWN>'
-}
-
 def conv(tokens, text):
-    print(f'text [{text}]')
+    '''
+    decode 每个解析出的 int token，然后找到原始字符串中对应的字符，打包成 Segments List
+    某些 emoji 或者汉字会使用多个 token 来表示，需要另外处理
+
+    type Segments = { text: string; tokens: { id: number; idx: number }[] }[]
+    '''
     segments = []
     token_acc = []
     for idx in range(len(tokens)):
-        # 根据 decode 得到的字符，跟 chars 中的比较
+    
         token_acc.append({'id':tokens[idx], 'idx':idx})
-
         decoded = tokenizer.decode([x['id'] for x in token_acc])
-        decode_len = len(decoded)
-
-        # 可能出现特殊情况，需要特判
-        if decode_len == 0:
-            check_key = "+".join([str(x['id']) for x in token_acc])
-            if check_key in SPECIAL_TOKEN_DICT:
-                decoded = SPECIAL_TOKEN_DICT[check_key]
-                decode_len = len(decoded)
-            else:
-                print(check_key)
+        
+        # 如果下一个字符是空格，但 decode 结果并不是空格开头，给 decode 补空格去做尝试
+        got = [' ' + decoded, decoded] if len(text) and text[0] == ' ' \
+            else [decoded]
+        
+        hit = False
+        for tk in got:
+            if hit:
                 continue
-        print(f'*[{decoded}]', text[:decode_len])
-        # 某些 emoji 或者汉字会使用多个 token 来表示
-        # 解析结果与原始字符串相同时，塞入一个结果，否则继续 append 导 token_acc
-        txt_to_check = text[:decode_len]
-        print(f'to check[{txt_to_check}]')
-        if decoded == txt_to_check:
-            segments.append({
-                'text': txt_to_check,
-                'tokens': token_acc.copy()
-            })
-            text = text[decode_len:]
-            print(text, decode_len)
-            print(segments)
-            token_acc = []
+            tk_len = len(tk)
+            # 某些 emoji 或者汉字会使用多个 token 来表示
+            # 解析结果与原始字符串相同时，塞入一个结果，否则继续 append 导 token_acc
+            txt_to_check = text[:tk_len]
+            if tk == txt_to_check:
+                segments.append({
+                    'text': txt_to_check,
+                    'tokens': token_acc.copy()
+                })
+                text = text[tk_len:]
+                token_acc = []
+                hit = True
 
     return segments
 
 def encode(text):
     ids = tokenizer.encode(text, False, False)
-    print(ids)
-    
-    if len(ids) and str(ids[0]) in SPECIAL_TOKEN_DICT:
-        text = SPECIAL_TOKEN_DICT[str(ids[0])] + text
     return conv(ids, text)
     
-print('[{tokenizer.decode([474, 270, 29880]))
-print(tokenizer.decode([474, 270, 29880, 288, 1490, 29871, 236, 189, 169, 30948, 29881, 232, 141, 182, 29871, 236, 168, 152, 236, 167, 177, 1407, 1568, 270, 1289]))
+if __name__=='__main__':
+
+    def test(text:str):
+        result = "".join([seg['text'] for seg in encode(text)])
+        print(text)
+        print(result)
+        assert text==result
+        print('------')
+
+    test(' ')
+    test('1')
+    test('a')
+    test('apple')
+    test('apple apple apple')
+    test('咚咚咚咚')
+    test('在')
+    test('饕餮')
+    test('one two three')
+    test(' 😃 one two three ')
+    test('😃咚咚咚噢的那个 one two three ')
+    test(' one two three\n ThreeThree😃Three')
+    

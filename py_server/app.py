@@ -57,16 +57,6 @@ def call_encoder(encoder_name:str, text:str):
 @app.post("/encode", response_model=List[Segment])
 async def get_encode_result(input: Inputs):
     return call_encoder(input.encoder, input.text)
-    # return [
-    #     {
-    #         'text':f'encoder is:{input.encoder} and {len(input.text)} texts',
-    #         'tokens':[{'id':123, 'idx':0}]
-    #     },
-    #     {
-    #         'text':f'encoder is:{input.encoder} and {len(input.text)} texts',
-    #         'tokens':[{'id':345, 'idx':1}]
-    #     }
-    # ]
 
 @app.get('/list', response_model=List[str])
 async def get_encoders():

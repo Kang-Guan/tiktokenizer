@@ -73,7 +73,7 @@ async def get_encoders():
     
 @app.get("/")
 async def get_homepage():
-    return FileResponse("../out/en.html", media_type="text/html")
+    return FileResponse("../out/index.html", media_type="text/html")
 
 app.mount("/", StaticFiles(directory="../out"), name="static")
 
